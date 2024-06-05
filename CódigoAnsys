@@ -89,3 +89,103 @@ mapdl.eplot()
 
 mapdl.finish()
 mapdl.exit()
+
+from ansys.mapdl.core import launch_mapdl
+
+# Iniciar uma sessão do MAPDL
+mapdl = launch_mapdl()
+
+# Limpar qualquer dado existente
+mapdl.clear()
+
+# Entrar no pré-processador
+mapdl.prep7()
+
+# Definição e malha da casca
+mapdl.et(1, "SHELL181")
+mapdl.mp("EX", 1, 2e5) # Módulo de elasticidade
+mapdl.mp("PRXY", 1, 0.3) # Coeficiente de Poisson
+mapdl.rectng(0, 6, 0, 6) # Cria um retângulo
+mapdl.sectype(1, "SHELL") # Define o tipo de seção
+mapdl.secdata(0.1) # Define a espessura da seção
+mapdl.esize(0.1) # A densidade de elementos
+mapdl.amesh("all")
+
+# Definir o tipo de elemento (BEAM188) e suas propriedades
+mapdl.et(2, "BEAM188")
+mapdl.keyopt(2, 4, 1)  # Saída de tensão de cisalhamento transversal
+
+# Propriedades do material
+mapdl.mp("EX", 2, 2e7)  # Módulo de elasticidade em N/cm2
+mapdl.mp("PRXY", 2, 0.27)  # Coeficiente de Poisson
+
+# Propriedades da seção da viga em centímetros
+sec_num = 1
+mapdl.sectype(2, "BEAM", "CSOLID")
+mapdl.secoffset("CENT")
+mapdl.secdata(0.5,0.5,0.5,0.5)
+
+# Definir os pontos iniciais e finais das estacas
+pontos_iniciais = [
+    [0, 0.9, 0],
+    [2, 0, 0],
+    [4, 0, 0],
+    [6, 0, 0],
+    [8, 0.0, 0],
+    [10, 0.0, 0],
+    [0, -0.9, 0],
+    [-2, 0, 0],
+    [-4, 0, 0],
+    [-6, 0, 0]
+]
+
+pontos_finais = [
+    [-1.81, 3.65, -19.73],
+    [2, 0, -20],
+    [4, 0, -20],
+    [6, 0, -20],
+    [8, 0, -20],
+    [10, 0, -20],
+    [-1.81, -3.65, -19.73],
+    [-2, 0, -20],
+    [-4, 0, -20],
+    [-6, 0, -20]
+]
+
+# Definir um deslocamento para evitar conflito com os keypoints criados automaticamente
+offset_keypoints = 100
+
+# Adicionar os keypoints iniciais e finais
+for i, (p_inicial, p_final) in enumerate(zip(pontos_iniciais, pontos_finais), start=1):
+    mapdl.k(i + offset_keypoints, *p_inicial)
+    mapdl.k(i + len(pontos_finais) + offset_keypoints, *p_final)
+
+    # Criar a linha (elemento de viga) entre os keypoints iniciais e finais
+    mapdl.l(i + offset_keypoints, i + len(pontos_finais) + offset_keypoints)
+
+# Malhar as linhas
+mapdl.type(2)
+mapdl.esize(1)
+mapdl.lesize("ALL")
+mapdl.lmesh("ALL")
+
+# Selecionar os nós iniciais das estacas e a casca
+for ponto_inicial in pontos_iniciais:
+    x, y, z = ponto_inicial
+    mapdl.nsel("s", "loc", "x", x)
+    mapdl.nsel("r", "loc", "y", y)
+    mapdl.nsel("r", "loc", "z", z)
+
+    # Selecionar os elementos associados aos nós
+    mapdl.esln("s")
+    mapdl.esel("r", "type", "", 1)  # Selecionar os elementos do tipo SHELL181
+
+# Gerar os elementos de contato
+output = mapdl.gcgen("NEW", splitkey="SPLIT", selopt="SELECT")
+print(output)
+
+# Visualizar a malha
+mapdl.eplot()
+
+mapdl.finish()
+mapdl.exit()
