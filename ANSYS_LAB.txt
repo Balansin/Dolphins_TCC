@@ -1,0 +1,80 @@
+! Limpar o banco de dados
+/CLEAR
+
+! Definir o tipo de elemento (BEAM188) e suas propriedades
+ET,1,BEAM188
+MP,EX,1,2e7    ! Módulo de elasticidade em N/cm^2
+MP,PRXY,1,0.27 ! Coeficiente de Poisson
+
+! Propriedades da seção da viga em centímetros
+SECTYPE,1,BEAM,CSOLID
+SECOFFSET,CENT
+SECDATA,0.5,0.5,0.5,0.5
+
+! Definir os pontos iniciais e finais das estacas
+! e criar os keypoints
+*DO,i,1,10
+    K,100+i,,{pontos_iniciais[i,1]},{pontos_iniciais[i,2]},{pontos_iniciais[i,3]}
+    K,110+i,,{pontos_finais[i,1]},{pontos_finais[i,2]},{pontos_finais[i,3]}
+    L,i,100+i,110+i
+*ENDDO
+
+! Malhar as linhas
+TYPE,1
+ESIZE,1
+LESIZE,ALL
+LMESH,ALL
+
+! Definição e malha da casca
+ET,2,SHELL181
+MP,EX,2,2e5   ! Módulo de elasticidade
+MP,PRXY,2,0.3 ! Coeficiente de Poisson
+RECTNG,0,6,-3,3 ! Cria um retângulo
+SECTYPE,2,SHELL ! Define o tipo de seção
+SECDATA,0.1     ! Define a espessura da seção
+ESIZE,0.1       ! A densidade de elementos
+AMESH,ALL
+
+! Contagem inicial de nós
+*GET,initial_node_count,NODE,0,COUNT
+*PRINT,initial_node_count
+
+! Merge all
+NSEL,S,LOC,Z,0,1e5
+NUMMRG,NODE,1e-5
+ALLSEL
+
+! Contagem final de nós
+*GET,final_node_count,NODE,0,COUNT
+*PRINT,final_node_count
+
+! Verificação do resultado da mesclagem
+IF,initial_node_count,GT,final_node_count,THEN
+    *PRINT,"Node merging was successful."
+ELSE
+    *PRINT,"Node merging did not reduce the node count."
+ENDIF
+
+! Visualizar a malha
+/PNUM,ALL
+/ESEL,ALL
+/EVPLOT
+/ESHAPE
+
+! Definir as condições de contorno
+NSEL,S,LOC,Z,-20.001,-19.999
+D,ALL,ALL
+
+! Plot das condições de contorno
+ALLSEL
+/PNUM,ALL
+/ESEL,ALL
+/EVPLOT,BC,OFF
+
+! Definir a gravidade
+ACEL,0,0,-9.81
+
+! Resolver o problema
+ANTYPE,STATIC
+SOLVE
+FINISH
