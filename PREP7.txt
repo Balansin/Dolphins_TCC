@@ -1,0 +1,82 @@
+/PREP7
+
+! Definir o tipo de elemento (BEAM188) e suas propriedades
+ET, 1, BEAM188
+
+! Propriedades do material
+MP, EX, 1, 2e7 ! Módulo de elasticidade em N/cm2
+MP, PRXY, 1, 0.27 ! Coeficiente de Poisson
+
+! Propriedades da seção da viga em centímetros
+SECTYPE, 1, BEAM, CSOLID
+SECOFFSET, CENT
+SECDATA, 0.5
+
+! Definir os pontos iniciais e finais das estacas
+*SET, x_iniciais, 0.0, 2.0, 4.0, 6.0, 3.0, 4.0, 0.0, 2.0, 4.0, 6.0
+*SET, y_iniciais, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0, -3.0, -3.0, -3.0, -3.0
+*SET, z_iniciais, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+*SET, x_finais, 0.0, 2.0, 4.0, 6.0, 3.0, 4.0, 0.0, 2.0, 4.0, 6.0
+*SET, y_finais, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0, -3.0, -3.0, -3.0, -3.0
+*SET, z_finais, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0
+
+! Número de nós intermediários a serem criados
+num_intermediate_nodes = 5
+
+! Inicialização do node_id
+node_id = 1
+
+! Início do loop para adicionar nós
+*DO, i, 1, 10, 1  ! Ajuste para 10 iterações, conforme definido nos pontos
+    ! Definição dos pontos iniciais e finais para esta iteração
+    x_inicial = x_iniciais(i)
+    y_inicial = y_iniciais(i)
+    z_inicial = z_iniciais(i)
+    
+    x_final = x_finais(i)
+    y_final = y_finais(i)
+    z_final = z_finais(i)
+    
+    ! Adicionar o nó inicial
+    N, node_id, x_inicial, y_inicial, z_inicial
+    
+    ! Adicionar o nó final
+    node_id_final = node_id + num_intermediate_nodes + 1
+    N, node_id_final, x_final, y_final, z_final
+    !Travar os nós finais
+    D,node_id_final,ALL,1
+    
+    ! Preencher nós intermediários
+    FILL, node_id, node_id_final, num_intermediate_nodes
+    
+    ! Atualizar o node_id para a próxima iteração
+    node_id = node_id_final + 1
+*ENDDO
+
+n_elemento = 1
+!Geração de elementos
+*DO, i, 1, 10, 1
+    *DO, j, 1, num_intermediate_nodes+1, 1
+        N_1 = j + (num_intermediate_nodes+2)*(i-1)
+        N_2 = N_1 + 1
+        EN, n_elemento, N_1, N_2
+        n_elemento = n_elemento + 1
+    *ENDDO
+*ENDDO
+
+! Definição e malha da casca
+ET, 2, SHELL181
+MP, EX, 2, 2e5 ! Módulo de elasticidade
+MP, PRXY, 2, 0.3 ! Coeficiente de Poisson
+RECTNG, 0, 6, -3, 3 ! Cria um retângulo
+SECTYPE, 2, SHELL ! Define o tipo de seção
+SECDATA, 0.1 ! Define a espessura da seção
+ESIZE, 0.1 ! A densidade de elementos
+AMESH, ALL
+
+! Merge pontos
+NSEL, S, LOC, Z, 0, 1e5
+NUMMRG, NODE, 1e-5
+NSEL, ALL
+
