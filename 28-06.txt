@@ -4,7 +4,7 @@ FINISH
 
 /PREP7
 
-/TITLE, Análise de Viga e Casca
+/TITLE, Análise de Estacas e Casca
 
 ! Definir o tipo de elemento (BEAM188) e suas propriedades
 ET, 1, BEAM188
