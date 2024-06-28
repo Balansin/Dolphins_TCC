@@ -1,6 +1,5 @@
 FINISH
 /CLEAR,NOSTART
-!
 
 /PREP7
 
@@ -8,14 +7,10 @@ FINISH
 
 ! Definir o tipo de elemento (BEAM188) e suas propriedades
 ET, 1, BEAM188
-KEYOPT, 1, 3, 2 ! Sugerido para BEAM188
-KEYOPT, 1, 15, 0 ! Já estava configurado corretamente
 
-! Propriedades do material para BEAM188
+! Propriedades do material
 MP, EX, 1, 2e7 ! Módulo de elasticidade em N/cm2
 MP, PRXY, 1, 0.27 ! Coeficiente de Poisson
-MP, DENS, 1, 7.85e-3 ! Densidade em kg/cm³
-
 
 ! Propriedades da seção da viga em centímetros
 SECTYPE, 1, BEAM, CSOLID
@@ -54,8 +49,8 @@ node_id = 1
     ! Adicionar o nó final
     node_id_final = node_id + num_intermediate_nodes + 1
     N, node_id_final, x_final, y_final, z_final
-    ! Travar os nós finais
-    D, node_id_final, ALL, 1
+    !Travar os nós finais
+    D,node_id_final,ALL,1
     
     ! Preencher nós intermediários
     FILL, node_id, node_id_final, num_intermediate_nodes
@@ -65,10 +60,10 @@ node_id = 1
 *ENDDO
 
 n_elemento = 1
-! Geração de elementos
+!Geração de elementos
 *DO, i, 1, 10, 1
-    *DO, j, 1, num_intermediate_nodes + 1, 1
-        N_1 = j + (num_intermediate_nodes + 2) * (i - 1)
+    *DO, j, 1, num_intermediate_nodes+1, 1
+        N_1 = j + (num_intermediate_nodes+2)*(i-1)
         N_2 = N_1 + 1
         EN, n_elemento, N_1, N_2
         n_elemento = n_elemento + 1
@@ -83,16 +78,25 @@ KEYOPT, 2, 3, 2 ! Sugerido para maior precisão das tensões de membrana
 ! Propriedades do material para SHELL181
 MP, EX, 2, 2e5 ! Módulo de elasticidade
 MP, PRXY, 2, 0.3 ! Coeficiente de Poisson
-MP, DENS, 2, 7.85e-3 ! Densidade em kg/cm³
+MP, DENS, 2, 7.85e-3 ! Densidade em kg/cm³ (ajuste conforme necessário)
 
 ! Definição da seção de casca
 SECTYPE, 2, SHELL
-SECDATA, 1e5
+SECDATA, 0.1
 
 ! Criação do retângulo e malha da casca
 RECTNG, 0, 6, -3, 3 ! Cria um retângulo
 ESIZE, 0.1 ! A densidade de elementos
 AMESH, ALL
+
+! Selecionar nós dentro da faixa de Z
+NSEL, S, LOC, Z, -1e5, 1e5
+
+! Selecionar elementos cujos centros estão dentro da faixa de Z
+ESEL, S, CENT, Z, -1e5, 1e5
+
+! Modificar a seção dos elementos selecionados
+EMODIF, ALL, SECNUM, 2
 
 ! Merge pontos
 NSEL, S, LOC, Z, 0, 1e5
