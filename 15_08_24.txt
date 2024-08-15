@@ -1,0 +1,256 @@
+FINISH
+/CLEAR,NOSTART
+
+/PREP7
+
+/TITLE, Análise de Estacas e Casca
+
+! Definir o tipo de elemento (BEAM188) e suas propriedades
+ET, 1, BEAM188
+
+! Propriedades do material
+MP, EX, 1, 21287.36714 ! Módulo de elasticidade em N/cm2
+MP, PRXY, 1, 0.2 ! Coeficiente de Poisson
+MP, DENS, 1, 2.549291 ! Densidade em kg/cm³ (ajuste conforme necessário)
+
+! Propriedades da seção da viga em centímetros
+SECTYPE, 1, BEAM, CSOLID
+SECOFFSET, CENT
+SECDATA, 0.5
+
+! Definir os pontos iniciais e finais das estacas
+*SET, x_iniciais, 0.0, 2.0, 4.0, 6.0, 3.0, 4.0, 0.0, 2.0, 4.0, 6.0
+*SET, y_iniciais, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0, -3.0, -3.0, -3.0, -3.0
+*SET, z_iniciais, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+*SET, x_finais, 0.0, 2.0, 4.0, 6.0, 3.0, 4.0, 0.0, 2.0, 4.0, 6.0
+*SET, y_finais, 3.0, 3.0, 3.0, 3.0, 0.0, 0.0, -3.0, -3.0, -3.0, -3.0
+*SET, z_finais, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0
+
+! Número de nós intermediários a serem criados
+num_intermediate_nodes = 5
+
+! Inicialização do node_id
+node_id = 1
+
+! Início do loop para adicionar nós
+*DO, i, 1, 10, 1  ! Ajuste para 10 iterações, conforme definido nos pontos
+    ! Definição dos pontos iniciais e finais para esta iteração
+    x_inicial = x_iniciais(i)
+    y_inicial = y_iniciais(i)
+    z_inicial = z_iniciais(i)
+    
+    x_final = x_finais(i)
+    y_final = y_finais(i)
+    z_final = z_finais(i)
+    
+    ! Adicionar o nó inicial
+    N, node_id, x_inicial, y_inicial, z_inicial
+    
+    ! Adicionar o nó final
+    node_id_final = node_id + num_intermediate_nodes + 1
+    N, node_id_final, x_final, y_final, z_final
+    !Travar os nós finais
+    D,node_id_final,ALL,1
+    
+    ! Preencher nós intermediários
+    FILL, node_id, node_id_final, num_intermediate_nodes
+    
+    ! Atualizar o node_id para a próxima iteração
+    node_id = node_id_final + 1
+*ENDDO
+N, 71, 3, 0,0
+N, 72, 3, 0,1
+EN, 1, 71, 72
+
+n_elemento = 2
+!Geração de elementos
+*DO, i, 1, 10, 1
+    *DO, j, 1, num_intermediate_nodes+1, 1
+        N_1 = j + (num_intermediate_nodes+2)*(i-1)
+        N_2 = N_1 + 1
+        EN, n_elemento, N_1, N_2
+        n_elemento = n_elemento + 1
+    *ENDDO
+*ENDDO
+
+! Definição do tipo de elemento (SHELL181) e propriedades do material para a casca
+ET, 2, SHELL181
+KEYOPT, 2, 8, 2 ! Sugerido para materiais elastoplásticos
+KEYOPT, 2, 3, 2 ! Sugerido para maior precisão das tensões de membrana
+
+! Propriedades do material para SHELL181
+MP, EX, 2, 30104.88332 ! Módulo de elasticidade
+MP, PRXY, 2, 0.2 ! Coeficiente de Poisson
+MP, DENS, 2, 2.54929 ! Densidade em kg/cm³ (ajuste conforme necessário)
+
+! Definição da seção de casca
+SECTYPE, 2, SHELL
+SECDATA, 0.1
+
+! Criação do retângulo e malha da casca
+RECTNG, 0, 6, -3, 3 ! Cria um retângulo
+ESIZE, 0.1 ! A densidade de elementos
+AMESH, ALL
+
+! Selecionar nós dentro da faixa de Z
+NSEL, S, LOC, Z, -1e5, 1e5
+
+! Selecionar elementos cujos centros estão dentro da faixa de Z
+ESEL, S, CENT, Z, -0.1, 0.1
+
+! Modificar a seção dos elementos selecionados
+EMODIF, ALL, SECNUM, 2
+
+! Merge pontos
+NSEL, S, LOC, Z, 0, 1e5
+NUMMRG, NODE, 1e-5
+NSEL, ALL
+
+! Saída dos nós e elementos
+ALLSEL,ALL ! Seleciona tudo
+/STAT,GLOBAL ! Exibe o status da análise, com quantidade de nós, elementos, materiais, condições de contorno, etc.
+NLIST,ALL, , ,XYZ,NODE,NODE,NODE ! Exibe a lista dos nós com coordenadas
+ELIST,ALL,,,0,0 ! Exibe a lista dos elementos e seus nós 
+
+! Definir tipo de análise como estática
+/SOLU
+ANTYPE, 0
+
+! Aplicar a aceleração do peso próprio
+ACEL, 0, 0, -9.81
+
+! Resolver o modelo para cada condição de carga
+*DO, I, 1, 13
+    ! Calcular o ângulo em radianos
+    Rad = (I-1) * 15 * 3.14159265359 / 180
+
+    ! Calcular as componentes da força horizontal
+    FX = COS(Rad) * 0000000
+    FY = SIN(Rad) * 0000000
+
+    ! Aplicar as forças horizontais no nó 72
+    ALLSEL, ALL
+    F, 72, FX, FX
+    F, 72, FY, FY
+
+    ! Resolver o modelo
+    SOLVE
+
+    ! Salvar os resultados da solução
+    SAVE, 'load_step_', I
+*ENDDO
+
+! Soluções de carga concluídas.
+FINISH
+
+/POST1  ! Entrar no pós-processador
+
+*DO, I, 1, 13  ! Loop para cada conjunto de resultados
+    SET, I  ! Definir o conjunto de resultados atual
+    ETABLE,TESTE,SMISC,1,MAX
+    PRESOL,S,PRIN
+    /WAIT,10
+*ENDDO
+!pletabpretyab
+FINISH  ! Sair do pós-processador
+/POST1  
+*DO, I, 1, 13  ! Loop para cada load step
+    SET, I  ! Definir o load step atual
+
+    *DO, ELEM, 1, 61  ! Loop para os 61 primeiros elementos BEAM188
+        ! Criar tabela para extrair os resultados SMISC
+        ETABLE, S1, SMISC, 1  ! Extrair SMISC item 1 (axial stress, por exemplo)
+        ETABLE, S2, SMISC, 2  ! Extrair SMISC item 2 (bending stress, por exemplo)
+        ETABLE, S3, SMISC, 3  ! Extrair SMISC item 3 (shear stress, por exemplo)
+        ! Adicione mais ETABLEs conforme necessário para os diferentes SMISC
+       
+        ! Selecionar o elemento
+        ESEL, S, ELEM, , ELEM
+
+        ! Mostrar os resultados extraídos
+        PRETAB, S1, S2, S3  ! Exibir os resultados para os itens S1, S2, S3
+        ! Se desejar exportar os dados para um arquivo, use PRETAB seguido de *CFOPEN para salvar
+    *ENDDO
+*ENDDO
+
+/POST1
+*DO, I, 1, 13  ! Loop para cada load step
+    SET, I  ! Definir o load step atual
+    
+    ! Identificar o load step atual
+    /TITLE, "Processando Load Step Número %I%"
+    /STAT, "Load Step Atual: %I%"
+    
+    *DO, ELEM, 1, 61  ! Loop para os 61 primeiros elementos BEAM188
+        ! Criar tabela para extrair os resultados SMISC
+        ETABLE, S1, SMISC, 1  ! Extrair SMISC item 1 (ex: tensão axial)
+        ETABLE, S2, SMISC, 2  ! Extrair SMISC item 2 (ex: tensão de flexão)
+        ETABLE, S3, SMISC, 3  ! Extrair SMISC item 3 (ex: tensão de cisalhamento)
+       
+        ! Selecionar o elemento
+        ESEL, S, ELEM, , ELEM
+
+        ! Mostrar os resultados extraídos
+        PRETAB, S1, S2, S3  ! Exibir os resultados para os itens S1, S2, S3
+    *ENDDO
+    
+    ! Esperar 10 segundos entre cada iteração para garantir que os resultados sejam processados
+    /WAIT, 3
+*ENDDO
+
+/POST1
+*DO, I, 1, 13  ! Loop para cada load step
+    SET, I  ! Definir o load step atual
+    
+    ! Identificar o load step atual
+    /TITLE, "Processando Load Step Número %I%"
+    /STAT, "Load Step Atual: %I%"
+    
+    *DO, ELEM, 1, 61  ! Loop para os 61 primeiros elementos BEAM188
+        ! Criar tabela para extrair os resultados SMISC
+        ETABLE, S1, SMISC, 1  ! Extrair SMISC item 1 (ex: tensão axial)
+        ETABLE, S2, SMISC, 2  ! Extrair SMISC item 2 (ex: tensão de flexão)
+        ETABLE, S3, SMISC, 3  ! Extrair SMISC item 3 (ex: tensão de cisalhamento)
+       
+        ! Selecionar o elemento
+        ESEL, S, ELEM, , ELEM
+
+        ! Mostrar os resultados extraídos
+        PRETAB, S1, S2, S3  ! Exibir os resultados para os itens S1, S2, S3
+    *ENDDO
+
+    ! Selecionar o nó 72 e calcular a soma das forças
+    NSEL, S, NODE, , 72
+    FSUM  ! Calcular a soma das forças no nó 72
+    
+    ! Esperar 10 segundos entre cada iteração para garantir que os resultados sejam processados
+    /WAIT, 1
+*ENDDO
+/POST1
+*DO, I, 1, 13  ! Loop para cada load step
+    SET, I  ! Definir o load step atual
+    
+    ! Identificar o load step atual
+    /TITLE, "Processando Load Step Número %I%"
+    /STAT, "Load Step Atual: %I%"
+    
+    *DO, ELEM, 1, 61  ! Loop para os 61 primeiros elementos BEAM188
+        ! Criar tabela para extrair os resultados SMISC
+        ETABLE, S1, SMISC, 1  ! Extrair SMISC item 1 (ex: tensão axial)
+        ETABLE, S2, SMISC, 2  ! Extrair SMISC item 2 (ex: tensão de flexão)
+        ETABLE, S3, SMISC, 3  ! Extrair SMISC item 3 (ex: tensão de cisalhamento)
+       
+        ! Selecionar o elemento
+        ESEL, S, ELEM, , ELEM
+
+        ! Mostrar os resultados extraídos
+        PRETAB, S1, S2, S3  ! Exibir os resultados para os itens S1, S2, S3
+    *ENDDO
+    
+    ! Calcular e exibir a soma das forças aplicadas no conjunto de nós
+    FSUM
+
+    ! Esperar 10 segundos entre cada iteração para garantir que os resultados sejam processados
+    /WAIT, 10
+*ENDDO
