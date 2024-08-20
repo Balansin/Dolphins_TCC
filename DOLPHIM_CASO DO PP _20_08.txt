@@ -1,0 +1,172 @@
+FINISH
+/CLEAR,NOSTART
+/PREP7
+/TITLE, Análise de Estacas e Casca
+!Unidades em kN e m
+
+! Definir o tipo de elemento (BEAM188) e suas propriedades
+ET, 1, BEAM188
+
+! Propriedades do material
+MP, EX, 1, 30104883.3248 ! Módulo de elasticidade em kN/m²
+MP, PRXY, 1, 0.2 ! Coeficiente de Poisson
+MP, DENS, 1, 2500 ! Densidade em kg/m³ (ajuste conforme necessário)
+
+! Propriedades da seção da viga em centímetros
+SECTYPE, 1, BEAM, CSOLID
+SECOFFSET, CENT
+SECDATA, 0.5
+
+! Definir os pontos iniciais e finais das estacas
+*SET, x_iniciais, 0.5, 2.0, 4.0, 5.5, 0.5, 5.5, 0.5, 2.0, 4.0, 5.5
+*SET, y_iniciais, 2.5, 2.5, 2.5, 2.5, 0.0, 0.0, -2.5, -2.5, -2.5, -2.5
+*SET, z_iniciais, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+*SET, x_finais, 0.5, 2.0, 4.0, 5.5, 0.5, 5.5, 0.5, 2.0, 4.0, 5.5
+*SET, y_finais, 2.5, 2.5, 2.5, 2.5, 0.0, 0.0, -2.5, -2.5, -2.5, -2.5
+*SET, z_finais, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0, -20.0
+
+! Número de nós intermediários a serem criados
+num_intermediate_nodes = 0
+
+! Inicialização do node_id
+node_id = 1
+
+! Início do loop para adicionar nós
+*DO, i, 1, 10, 1  ! Ajuste para 10 iterações, conforme definido nos pontos
+    ! Definição dos pontos iniciais e finais para esta iteração
+    x_inicial = x_iniciais(i)
+    y_inicial = y_iniciais(i)
+    z_inicial = z_iniciais(i)
+    
+    x_final = x_finais(i)
+    y_final = y_finais(i)
+    z_final = z_finais(i)
+    
+    ! Adicionar o nó inicial
+    N, node_id, x_inicial, y_inicial, z_inicial
+    
+    ! Adicionar o nó final
+    node_id_final = node_id + num_intermediate_nodes + 1
+    N, node_id_final, x_final, y_final, z_final
+    !Travar os nós finais
+    D,node_id_final,ALL,1
+    
+    ! Preencher nós intermediários
+    FILL, node_id, node_id_final, num_intermediate_nodes
+    
+    ! Atualizar o node_id para a próxima iteração
+    node_id = node_id_final + 1
+*ENDDO
+
+
+n_elemento = 1
+!Geração de elementos
+*DO, i, 1, 10, 1
+    *DO, j, 1, num_intermediate_nodes+1, 1
+        N_1 = j + (num_intermediate_nodes+2)*(i-1)
+        N_2 = N_1 + 1
+        EN, n_elemento, N_1, N_2
+        n_elemento = n_elemento + 1
+    *ENDDO
+*ENDDO
+
+! Selecionar elementos do tipo BEAM188
+ESEL, S, TYPE, , 1  ! Seleciona elementos do tipo 1 (BEAM188)
+
+! Obter a contagem dos elementos selecionados e armazenar em uma variável
+*GET, num_elem, ELEM, 0, COUNT  ! Armazena a contagem em 'num_elem'
+
+! Atribuir o valor de 'num_elem' a uma nova variável, por exemplo, 'k'
+k = num_elem
+
+! Agora você pode usar 'k' como quiser
+/COM, O valor de 'k' é: k
+
+!Criar elemento de aplicação de carga
+N, 1000, 3, 0,0
+N, 1001, 3, 0,0.1
+EN, k+1, 1000, 1001
+
+
+! Definição do tipo de elemento (SHELL181) e propriedades do material para a casca
+ET, 2, SHELL181
+!KEYOPT, 2, 8, 2 ! Sugerido para materiais elastoplásticos
+!KEYOPT, 2, 3, 2 ! Sugerido para maior precisão das tensões de membrana
+
+! Propriedades do material para SHELL181
+MP, EX, 2, 20104883.3248 ! Módulo de elasticidade kN/m²
+MP, PRXY, 2, 0.2 ! Coeficiente de Poisson
+MP, DENS, 2, 2500 ! Densidade em kg/m³ (ajuste conforme necessário)
+
+! Definição da seção de casca
+SECTYPE, 2, SHELL
+SECDATA, 1.5
+
+! Criação do retângulo e malha da casca
+RECTNG, 0, 6, -3, 3 ! Cria um retângulo
+ESIZE, 0.1 ! A densidade de elementos
+AMESH, ALL
+
+! Selecionar elementos cujos centros estão dentro da faixa de Z
+ESEL, S, TYPE,,2
+
+! Modificar a seção dos elementos selecionados
+EMODIF, ALL, SECNUM, 2
+
+! Merge pontos
+NSEL, S, LOC, Z, 0, 1e5
+NUMMRG, NODE, 1e-5
+NSEL, ALL
+
+! Saída dos nós e elementos
+ALLSEL,ALL ! Seleciona tudo
+/STAT,GLOBAL ! Exibe o status da análise, com quantidade de nós, elementos, materiais, condições de contorno, etc.
+NLIST,ALL, , ,XYZ,NODE,NODE,NODE ! Exibe a lista dos nós com coordenadas
+ELIST,ALL,,,0,0 ! Exibe a lista dos elementos e seus nós 
+!ACEL, 0, 0, -9.81
+
+!SOLU_PP
+/SOLU
+ANTYPE, 0
+SOLVE
+
+!POST_PP
+/POST1
+SET, 1
+! Selecionar os primeiros nós de elementos
+NSEL, S, NODE, , 1, k+10  ! Seleciona nós 
+! Gerar ETABLE para deslocamentos dos nós selecionados
+ETABLE, U_X, U, X
+ETABLE, U_Y, U, Y
+ETABLE, U_Z, U, Z
+
+! Exibir os resultados do ETABLE
+PRNSOL, U, COMP  ! Imprimir deslocamentos
+
+ESEL, S, TYPE, , 1  ! Seleciona apenas elementos do tipo 1 (BEAM188)
+    
+! Gerar ETABLE para momentos fletores My e Mz dos elementos selecionados
+ETABLE, Fx, SMISC, 1  ! Força Axial
+ETABLE, My, SMISC, 2  ! Momento fletor em Y
+ETABLE, Mz, SMISC, 3  ! Momento fletor em Z
+ETABLE, Area, SMISC, 13  ! Área da seção transversal
+
+! Exibir os resultados do ETABLE
+PRETAB, Fx, My, Mz, Area
+
+ESEL, S, TYPE, , 1  ! Seleciona apenas elementos do tipo 1 (BEAM188)\
+
+ETABLE, 1, S, X  ! S1
+ETABLE, 2, S, Y  ! S2
+ETABLE, 3, S, Z  ! S3
+ETABLE, Area, SMISC, 13  ! Área da seção transversal
+! Exibir os resultados do ETABLE
+PRETAB, 1, 2, 3, Area
+
+
+
+
+
+
+
